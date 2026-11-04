@@ -1,0 +1,5 @@
+   key.txt
+   *.csv
+   !정제_*.csv
+# !정제_*.csv : "원본 CSV는 빼되, 정제 파일은 올린다"
+   .ipynb_checkpoints/
