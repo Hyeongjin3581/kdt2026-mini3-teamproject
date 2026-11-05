@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-.csv
-=======
    key.txt
    *.csv
    !정제_*.csv
 # !정제_*.csv : "원본 CSV는 빼되, 정제 파일은 올린다"
    .ipynb_checkpoints/
->>>>>>> 23c85ac20eac11756b59f208ba2b17dbc6452fc2
