@@ -139,15 +139,19 @@ df.to_csv('정책브리핑_수집.csv', index=False, encoding='utf-8-sig')
 print( "저장 파일 : 정책브리핑_수집.csv" )
 # CSV 저장은 전체 페이지 수집과 나머지 항목 추출을 작성한 뒤 추가한다.
 # df.to_csv('data/raw/정책브리핑_수집.csv', index=False, encoding='utf-8-sig')
+import pandas as pd
 
+df = pd.read_csv('정책브리핑_수집중.csv')
 # [4. 데이터 전처리]
 # 4-1 (중복 제거): 검색어끼리 겹치는 기사를 drop_duplicates('제목') 으로 제거한다. (345 → 265건)
-
+df = df.drop_duplicates('제목').reset_index(drop=True)
+df.shape
 # 4-2 (1차 자동 필터): 정책브리핑 검색은 검색어를 단어로 쪼개서 찾아 무관 기사가 많이 섞인다.
 #                     (예: '고령운전자' 검색에 환경부 홍수 대책 기사가 '고령'·'운전자' 를 따로 포함해서 걸린다)
 #                     제목에 '고령|노인|어르신|면허' 가 있고, 제목+요약에 '운전|교통|보행|이동|버스|면허' 가 있는 기사만 남긴다.
 #                     df[ df['제목'].str.contains('고령|노인|어르신|면허') & (df['제목'] + ' ' + df['요약']).str.contains('운전|교통|보행|이동|버스|면허') ]
 #                     → 22건 (수업 참고: day08/Practice3.py 문제 3 & 연산자)
+
 
 # 4-3 (본문 수집): 정책뉴스는 3-2 ~ 3-4 와 같은 방식으로 브라우저를 열고 링크마다 await 페이지.goto(링크) 한 뒤
 #                  본문 = await 페이지.query_selector('div.view_cont') → await 본문.inner_text() 로 본문을 모은다.
