@@ -19,6 +19,7 @@
 #       D(정책)는 전국 단위라 결합하지 않고, 융화 인사이트에서 따로 비교한다.
 
 # [기본 제공 코드]
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -84,3 +85,214 @@ sns.set_theme(font='Malgun Gothic', rc={'axes.unicode_minus': False}, style='whi
 # 6-4 (비용 비교): 농촌형 교통모델 지원액(군당 3.5억 원, 농식품부 보도자료 첨부 PDF p.3)과 비교해 투입 대비 효과를 적는다.
 # ※ 추정치이므로 보고서에는 "약 ○○억 원으로 추정된다" 처럼 가정과 함께 쓴다.
 # ※ 한계: 군위군 대구 편입(2023.7)은 모든 데이터에서 옮기지 않고 각 연도 당시 행정구역 그대로 썼다.
+
+# 1. 파일 위치
+A파일 = './data/data/clean/정제_A_사고.csv'
+B파일 = './data/정제_B_반납인구.csv'
+C파일 = './data/정제_C_정류장.csv'
+
+저장폴더 = './data/merge'
+그래프폴더 = './data/graphs'
+
+os.makedirs(저장폴더, exist_ok=True)
+os.makedirs(그래프폴더, exist_ok=True)
+
+# 2. 데이터 불러오기
+A = pd.read_csv(A파일, encoding='utf-8-sig')
+B = pd.read_csv(B파일, encoding='utf-8-sig')
+C = pd.read_csv(C파일, encoding='utf-8-sig')
+
+print('\n[C팀 전체 열 이름]')
+print(C.columns.tolist())
+
+print('\n[C팀 원본 데이터]')
+print(C.head(10).to_string(index=False))
+
+print('\n[C팀 열별 결측치]')
+print(C.isnull().sum())
+
+print('[1] 데이터 행 수')
+print('A:', len(A), 'B:', len(B), 'C:', len(C))
+
+# 3. 결합에 필요한 열 확인
+A = A[['연도', '시도명', '고령사고_만명당']]
+
+# C팀의 실제 정류장 수를 가져오기
+C = C[['연도', '시도명', '전체버스정류장']]
+
+for 자료 in [A, B, C]:
+    자료['연도'] = pd.to_numeric(자료['연도'])
+
+    자료['시도명'] = 자료['시도명'].replace({
+        '강원도': '강원특별자치도',
+        '전라북도': '전북특별자치도',
+        '제주도': '제주특별자치도'
+    })
+
+# 중복 확인
+for 이름, 자료 in [('A', A), ('B', B), ('C', C)]:
+    if 자료.duplicated(['연도', '시도명']).any():
+        raise ValueError(이름 + ' 파일에 연도·시도 중복이 있습니다.')
+
+print('\n[B팀 지역명]')
+print(B[['연도', '시도명']].head(10))
+
+print('\n[C팀 지역명]')
+print(C[['연도', '시도명']].head(10))
+
+print('\n[B팀 연도 자료형]', B['연도'].dtype)
+print('[C팀 연도 자료형]', C['연도'].dtype)
+
+
+# 4. 데이터 결합
+합계 = pd.merge(B, A, on=['연도', '시도명'], how='left')
+합계 = pd.merge(합계, C, on=['연도', '시도명'], how='left')
+
+# 고령인구 1,000명당 버스정류장 수 계산
+합계['정류장_천명당'] = (
+    합계['전체버스정류장'] / 합계['65세이상인구'] * 1000
+)
+
+# 결합 결과 확인
+print('\n[2] 결합 결과:', 합계.shape)
+print(합계.isnull().sum())
+
+print('\n[정류장 비율 계산 결과]')
+print(합계[['연도', '시도명', '전체버스정류장',
+          '65세이상인구', '정류장_천명당']].head(10))
+
+# 결합 검증
+if len(합계) != 51 or 합계.isnull().any().any():
+    raise ValueError('결합 결과에 행 수 또는 결측치 문제가 있습니다.')
+
+# 수도권 여부 구분
+합계['수도권여부'] = np.where(
+    합계['시도명'].isin(['서울특별시', '인천광역시', '경기도']),
+    '수도권', '비수도권'
+)
+
+# 결합 데이터 저장
+합계.to_csv(
+    저장폴더 + '/결합테이블.csv',
+    index=False,
+    encoding='utf-8-sig'
+)
+
+print('\n[결합 데이터 저장 완료]')
+
+
+# 5. 연도별 핵심 가설 검증
+결과목록 = []
+
+for 연도 in [2022, 2023, 2024]:
+    자료 = 합계[합계['연도'] == 연도]
+
+    정류장상관 = 자료['정류장_천명당'].corr(자료['반납률'])
+    고령화상관 = 자료['고령화율'].corr(자료['반납률'])
+    사고상관 = 자료['반납률'].corr(자료['고령사고_만명당'])
+
+    핵심충족 = (정류장상관 >= 0.4 and
+              abs(정류장상관) > abs(고령화상관))
+
+    A_H3충족 = 사고상관 <= -0.4
+
+    결과목록.append({
+        '연도': 연도,
+        '정류장_반납률_r': 정류장상관,
+        '고령화율_반납률_r': 고령화상관,
+        '반납률_사고_r': 사고상관,
+        '핵심가설충족': 핵심충족,
+        'A_H3충족': A_H3충족
+    })
+
+판정표 = pd.DataFrame(결과목록)
+
+print('\n[3] 연도별 가설 판정')
+print(판정표.round(3).to_string(index=False))
+
+충족연도수 = 판정표['핵심가설충족'].sum()
+
+if 충족연도수 == 3:
+    최종판정 = '채택'
+elif 충족연도수 == 2:
+    최종판정 = '부분 채택'
+else:
+    최종판정 = '기각'
+
+print('\n핵심 가설 최종 판정:', 최종판정)
+
+r2022 = 판정표.loc[
+    판정표['연도'] == 2022, '정류장_반납률_r'
+].iloc[0]
+
+r2024 = 판정표.loc[
+    판정표['연도'] == 2024, '정류장_반납률_r'
+].iloc[0]
+
+print('코로나 보조 가설 (2022 < 2024):', r2022 < r2024)
+
+판정표.to_csv(저장폴더 + '/가설판정표.csv',
+            index=False, encoding='utf-8-sig')
+
+# 6. 연도별 상관계수 히트맵
+열목록 = ['반납률', '정류장_천명당',
+         '고령화율', '고령사고_만명당']
+
+fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+
+for i, 연도 in enumerate([2022, 2023, 2024]):
+    자료 = 합계[합계['연도'] == 연도]
+    상관표 = 자료[열목록].corr()
+
+    sns.heatmap(상관표, annot=True, fmt='.2f',
+                cmap='coolwarm', vmin=-1, vmax=1,
+                ax=axs[i])
+
+    axs[i].set_title(str(연도) + '년 상관계수')
+
+plt.tight_layout()
+plt.savefig(그래프폴더 + '/E_연도별_상관계수.png', dpi=150)
+plt.show()
+
+# 7. 보조 산점도
+fig, axs = plt.subplots(1, 2, figsize=(13, 5))
+
+sns.scatterplot(data=합계, x='고령화율',
+                y='반납률', hue='연도', ax=axs[0])
+
+sns.scatterplot(data=합계, x='정류장_천명당',
+                y='반납률', hue='연도', ax=axs[1])
+
+axs[0].set_title('고령화율과 면허 반납률')
+axs[1].set_title('버스정류장 수와 면허 반납률')
+
+plt.tight_layout()
+plt.savefig(그래프폴더 + '/E_반납률_산점도.png', dpi=150)
+plt.show()
+
+# 8. A팀 가설 3 산점도
+plt.figure(figsize=(9, 6))
+
+sns.scatterplot(data=합계, x='반납률',
+                y='고령사고_만명당', hue='연도')
+
+plt.title('면허 반납률과 고령운전자 사고 발생률')
+plt.tight_layout()
+plt.savefig(그래프폴더 + '/E_A가설3_산점도.png', dpi=150)
+plt.show()
+
+# 9. 코로나 보조 가설 시각화
+plt.figure(figsize=(8, 5))
+
+sns.lineplot(data=판정표, x='연도',
+             y='정류장_반납률_r', marker='o')
+
+plt.xticks([2022, 2023, 2024])
+plt.title('연도별 정류장 수와 반납률의 상관계수')
+plt.ylabel('피어슨 상관계수 r')
+plt.tight_layout()
+plt.savefig(그래프폴더 + '/E_코로나_상관계수.png', dpi=150)
+plt.show()
+
+print('\n[완료] 결합 분석 및 그래프 저장 완료')
+
