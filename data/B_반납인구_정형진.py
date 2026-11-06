@@ -142,8 +142,8 @@ print(뼈대.head())
 # 5-1 (가설 1 - 반납률 비교)
 plt.figure(figsize=(10, 9))
 sns.barplot(data=뼈대, x='반납률', y='시도명', hue='연도')
-plt.title('2022~2024년 시도별 고령 인구 천 명당 면허 반납률')
-plt.xlabel('반납률 (65세 이상 인구 천 명당 건)')
+plt.title('2022~2024년 시도별 면허 반납률')
+plt.xlabel('반납률')
 plt.ylabel('')
 plt.tight_layout()
 plt.show()
@@ -158,21 +158,98 @@ for 연도 in [2022, 2023, 2024]:
           f"→ {배수:.2f}배 → {'채택' if 배수 >= 2 else '기각'}")
 
 # 5-2 (가설 2 - 고령화율 관계)
-plt.figure(figsize=(8, 6))
-sns.scatterplot(data=뼈대, x='고령화율', y='반납률', hue='연도', palette='deep', s=80)
-plt.title('고령화율과 면허 반납률')
-plt.xlabel('고령화율 (%)')
-plt.ylabel('반납률 (65세 이상 인구 천 명당 건)')
+# 연도별 상관계수 r 을 먼저 구한다. (|r| < 0.4 이면 '약한 상관' → 가설 2 조건 충족)
+print('\n[5-2 가설 2] 고령화율과 반납률의 상관계수 (3개 연도 모두 |r| < 0.4 이면 채택)')
+연도목록 = [2022, 2023, 2024]
+r값 = {}
+for 연도 in 연도목록:
+    r값[연도] = 뼈대[뼈대['연도'] == 연도][['고령화율', '반납률']].corr().iloc[0, 1]
+    print(f'{연도}: r = {r값[연도]:.3f} → {"약함(조건 충족)" if abs(r값[연도]) < 0.4 else "약하지 않음"}')
+가설2채택 = all(abs(r) < 0.4 for r in r값.values())
+print('가설 2:', '채택' if 가설2채택 else '기각')
+
+def 상관해석(r):
+    크기 = abs(r)
+    return '거의 없음' if 크기 < 0.2 else '약함' if 크기 < 0.4 else '보통' if 크기 < 0.6 else '강함'
+
+연도색 = {2022: '#9AA5B1', 2023: '#5B8DB8', 2024: '#1F4E79'}
+os.makedirs('./data/graphs', exist_ok=True)
+
+# 5-2-① 막대 그래프로 상관관계 보여 주기 – [그래프 1] 3그룹 평균 막대 / [그래프 2] 상관계수가 이 값인 이유 (2024년)
+#   상관계수 r 은 시도마다 "평균에서 얼마나 떨어졌나"를 곱한 값(기여도)을 모두 더한 것이다.
+#     기여도 = (고령화율 표준점수) × (반납률 표준점수) ÷ (시도 수 - 1)     → 17개 기여도의 합 = r
+#   · 둘 다 평균보다 크거나 둘 다 작으면(↗ 방향 칸) → 기여도 +  (r 을 끌어올림)
+#   · 하나만 평균보다 크면(↘ 방향 칸)               → 기여도 -  (r 을 끌어내림)
+#   · 평균에서 멀리 떨어진 시도일수록 기여도가 크다
+#   → + 와 - 가 서로 상쇄되면 r 은 0 에 가까워진다.
+기준연도 = 2024
+g = 뼈대[뼈대['연도'] == 기준연도].copy()
+n = len(g)
+평균_고령화율 = g['고령화율'].mean()     # r 계산에 쓰이는 기준선 = 17개 시도의 단순 평균
+평균_반납률 = g['반납률'].mean()
+g['기여도'] = ((g['고령화율'] - 평균_고령화율) / g['고령화율'].std()) \
+            * ((g['반납률'] - 평균_반납률) / g['반납률'].std()) / (n - 1)
+양수합 = g.loc[g['기여도'] > 0, '기여도'].sum()
+음수합 = g.loc[g['기여도'] < 0, '기여도'].sum()
+print(f'\n[5-2-①] {기준연도}년 기여도: + 합 {양수합:.3f} / - 합 {음수합:.3f} → 합계 {g["기여도"].sum():.3f} (= r {r값[기준연도]:.3f})')
+print(g.sort_values('기여도')[['시도명', '고령화율', '반납률', '기여도']].round(3).to_string(index=False))
+
+g['짧은이름'] = (g['시도명'].str.replace('특별자치', '').str.replace('광역시', '').str.replace('특별시', '')
+                .str.replace('경상', '경').str.replace('전라', '전').str.replace('충청', '충'))
+색_양 = '#2E9E4F'     # r 을 끌어올림 (같은 방향)
+색_음 = '#D1495B'     # r 을 끌어내림 (반대 방향)
+
+# [그래프 1] 3그룹 평균 막대: 17개 시도를 고령화율 순으로 하위·중위·상위 3그룹(6·5·6곳)으로 나눠 그룹별 평균 반납률을 비교한다.
+#            → 관계가 있다면 막대가 계단처럼 오르거나 내려가야 한다. 거의 평평하면 '관계 거의 없음'
+fig, axes = plt.subplots(1, 3, figsize=(16, 5.5), sharey=True)
+for ax, 연도 in zip(axes, 연도목록):
+    t = 뼈대[뼈대['연도'] == 연도].copy()
+    t['그룹'] = pd.qcut(t['고령화율'], 3, labels=['하위', '중위', '상위'])
+    그룹표 = t.groupby('그룹', observed=True).agg(평균반납률=('반납률', 'mean'), 시도수=('시도명', 'count'),
+                                              최소=('고령화율', 'min'), 최대=('고령화율', 'max'))
+    라벨 = [f"고령화율 {그룹}\n({행.최소:.1f}~{행.최대:.1f}%, {int(행.시도수)}곳)" for 그룹, 행 in 그룹표.iterrows()]
+    막대 = ax.bar(라벨, 그룹표['평균반납률'], color=연도색[연도], width=0.6)
+    ax.bar_label(막대, fmt='%.2f', padding=3, fontsize=11)
+    ax.set_title(f'{연도}년  r = {r값[연도]:.2f}', fontsize=12)
+    ax.set_ylim(0, 뼈대['반납률'].max() * 1.0)
+    ax.set_ylabel('평균 반납률' if 연도 == 연도목록[0] else '')
+    ax.tick_params(axis='x', labelsize=9)
+    ax.grid(axis='x', visible=False)
+    print(f'[5-2-①] {연도} 고령화율 3그룹 평균 반납률:', 그룹표['평균반납률'].round(2).to_dict())
+fig.suptitle('고령화율 3그룹별 평균 반납률',
+             fontsize=14, fontweight='bold')
 plt.tight_layout()
+plt.savefig('./data/graphs/B_가설2_고령화율_3그룹_막대.png', dpi=150)
 plt.show()
 
-print('\n[5-2 가설 2] 고령화율과 반납률의 상관계수 (3개 연도 모두 |r| < 0.4 이면 채택)')
-결과 = []
-for 연도 in [2022, 2023, 2024]:
-    r = 뼈대[뼈대['연도'] == 연도][['고령화율', '반납률']].corr().iloc[0, 1]
-    결과.append(abs(r) < 0.4)
-    print(f'{연도}: r = {r:.3f} → {"약함(조건 충족)" if abs(r) < 0.4 else "약하지 않음"}')
-print('가설 2:', '채택' if all(결과) else '기각')
+# [그래프 2] 기여도 막대: 17개 막대를 모두 더하면 r 이 된다 (초록 + 합과 빨강 - 합이 상쇄)
+정렬 = g.sort_values('기여도')
+fig, ax = plt.subplots(figsize=(10, 7))
+막대 = ax.barh(정렬['짧은이름'], 정렬['기여도'], color=np.where(정렬['기여도'] > 0, 색_양, 색_음))
+ax.bar_label(막대, fmt='%+.3f', padding=3, fontsize=9)
+ax.axvline(0, color='gray', linewidth=0.8)
+ax.set_xlim(정렬['기여도'].min() - 0.05, 정렬['기여도'].max() + 0.05)
+ax.set_xlabel('기여도')
+ax.set_title(f'{기준연도}년 시도별 기여도', fontsize=13, fontweight='bold')
+plt.tight_layout()
+plt.savefig('./data/graphs/B_가설2_기여도_막대.png', dpi=150)
+plt.show()
+
+
+# 5-2-② 연도별 상관계수 막대: 회색 띠(|r| < 0.4) 안에 들어오면 '약한 상관' → 가설 2 조건 충족
+plt.figure(figsize=(8, 5))
+plt.axhspan(-0.4, 0.4, color='lightgray', alpha=0.5, label='약한 상관 (|r| < 0.4)')
+plt.axhline(0, color='gray', linewidth=0.8)
+막대 = plt.bar([str(y) for y in 연도목록], [r값[y] for y in 연도목록],
+              color=[연도색[y] for y in 연도목록], width=0.5)
+plt.bar_label(막대, labels=[f'r = {r값[y]:.2f}' for y in 연도목록], padding=4, fontsize=11)
+plt.ylim(-1, 1)
+plt.ylabel('상관계수 r')
+plt.title('연도별 고령화율 · 반납률 상관계수', fontsize=13, fontweight='bold')
+plt.legend(loc='upper right')
+plt.tight_layout()
+plt.savefig('./data/graphs/B_가설2_연도별_상관계수.png', dpi=150)
+plt.show()
 
 # 5-3 (현실 확인 - 고령 인구 vs 반납 증감): 2022 · 2023 · 2024년 전국 값을 항목별 그래프 3개로 나눠 비교한다.
 #                                          막대 위에는 실제 값만 적고, 증감률은 제목에 적는다.
@@ -186,9 +263,9 @@ print('전년 대비 증감률(%)')
 print(전년대비.round(1))
 print('2022 → 2024 누적 증감률(%):', 누적.round(1).to_dict())
 
-항목목록 = [('65세이상인구', '65세 이상 인구 (명)', '#4C72B0', '{:,.0f}'),
-          ('반납건수', '면허 반납 건수 (건)', '#DD8452', '{:,.0f}'),
-          ('반납률', '반납률 (고령 인구 천 명당 건)', '#C44E52', '{:.2f}')]
+항목목록 = [('65세이상인구', '65세 이상 인구', '#4C72B0', '{:,.0f}'),
+          ('반납건수', '면허 반납 건수', '#DD8452', '{:,.0f}'),
+          ('반납률', '반납률', '#C44E52', '{:.2f}')]
 연도라벨 = [str(y) for y in 전국합계.index]
 
 fig, axes = plt.subplots(1, 3, figsize=(16, 5.5))
@@ -196,15 +273,11 @@ for ax, (col, 제목, 색, 형식) in zip(axes, 항목목록):
     값 = 전국합계[col]
     막대 = ax.bar(연도라벨, 값.values, color=색, width=0.6)
     ax.bar_label(막대, labels=[형식.format(v) for v in 값.values], padding=3, fontsize=11)   # 막대 위에는 실제 값만
-    증감말 = '증가' if 누적[col] > 0 else '감소'
-    ax.set_title(f'{제목}\n2022년 대비 2024년 {abs(누적[col]):.1f}% {증감말}', fontsize=12)
+    ax.set_title(f'{제목} ({누적[col]:+.1f}%)', fontsize=12)
     ax.set_ylim(0, 값.max() * 1.15)                                       # y축을 0부터 시작해 실제 크기 그대로 비교
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p, f=형식: f.format(x)))
     ax.grid(axis='x', visible=False)
-fig.suptitle('2022~2024년 전국 고령 인구 · 면허 반납 건수 · 반납률 비교\n'
-             f'고령 인구는 {누적["65세이상인구"]:.1f}% 늘었지만 반납 건수는 {누적["반납건수"]:.1f}% 늘어, '
-             f'고령 인구 대비 반납률은 {abs(누적["반납률"]):.1f}% 줄었다',
-             fontsize=14, fontweight='bold')
+fig.suptitle('2022~2024년 고령 인구 · 반납 건수 · 반납률', fontsize=14, fontweight='bold')
 plt.tight_layout()
 plt.show()
 
@@ -220,9 +293,9 @@ plt.figure(figsize=(8, 5))
 ax = sns.barplot(data=구분합계, x='연도', y='반납률', hue='구분', hue_order=['특별·광역시', '도'])
 for c in ax.containers:
     ax.bar_label(c, fmt='%.2f', padding=3)
-plt.title('특별·광역시와 도의 고령 인구 천 명당 면허 반납률')
+plt.title('특별·광역시 vs 도 반납률')
 plt.xlabel('')
-plt.ylabel('반납률 (65세 이상 인구 천 명당 건)')
+plt.ylabel('반납률')
 plt.ylim(0, 구분합계['반납률'].max() + 2)
 plt.legend(title='')
 plt.tight_layout()
