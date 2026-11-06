@@ -87,7 +87,7 @@ sns.set_theme(font='Malgun Gothic', rc={'axes.unicode_minus': False}, style='whi
 # ※ 한계: 군위군 대구 편입(2023.7)은 모든 데이터에서 옮기지 않고 각 연도 당시 행정구역 그대로 썼다.
 
 # 1. 파일 위치
-A파일 = './data/data/clean/정제_A_사고.csv'
+A파일 = './data/정제_A_사고.csv'
 B파일 = './data/정제_B_반납인구.csv'
 C파일 = './data/정제_C_정류장.csv'
 
