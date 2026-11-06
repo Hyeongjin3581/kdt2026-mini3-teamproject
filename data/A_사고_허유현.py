@@ -14,14 +14,18 @@ plt.rc('font', family='Malgun Gothic')
 plt.rcParams['axes.unicode_minus'] = False
 
 # 1] 파일 위치 설정
-코드표파일 = './data/data/raw/사고API_시군구코드표_2022_2024.csv'
+코드표파일 = './data/사고API_시군구코드표_2022_2024.csv'
 키파일 = './data/key.txt'
+
+# 원자료는 기존 raw 폴더 사용
 중간파일 = './data/data/raw/수집_A_중간저장.csv'
 실패파일 = './data/data/raw/수집_A_실패목록.csv'
-결과파일 = './data/data/clean/정제_A_사고.csv'
-인구파일 = './data/data/clean/정제_B_반납인구.csv'
+
+# 최종 CSV는 B·C팀과 같은 폴더
+결과파일 = './data/정제_A_사고.csv'
+인구파일 = './data/정제_B_반납인구.csv'
+
 그래프폴더 = './data/graphs'
-os.makedirs('./data/data/clean', exist_ok=True)
 os.makedirs(그래프폴더, exist_ok=True)
 
 # 2] 자료 수집 준비
