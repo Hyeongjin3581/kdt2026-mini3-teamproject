@@ -219,7 +219,7 @@ for ax, 연도 in zip(axes, 연도목록):
 fig.suptitle('고령화율 3그룹별 평균 반납률',
              fontsize=14, fontweight='bold')
 plt.tight_layout()
-plt.savefig('./data/graphs/B_가설2_고령화율_3그룹_막대.png', dpi=150)
+plt.savefig('./data/graphs/B가설2-1_고령화율_3그룹_막대.png', dpi=150)
 plt.show()
 
 # [그래프 2] 기여도 막대: 17개 막대를 모두 더하면 r 이 된다 (초록 + 합과 빨강 - 합이 상쇄)
@@ -232,7 +232,7 @@ ax.set_xlim(정렬['기여도'].min() - 0.05, 정렬['기여도'].max() + 0.05)
 ax.set_xlabel('기여도')
 ax.set_title(f'{기준연도}년 시도별 기여도', fontsize=13, fontweight='bold')
 plt.tight_layout()
-plt.savefig('./data/graphs/B_가설2_기여도_막대.png', dpi=150)
+plt.savefig('./data/graphs/B가설2-2_기여도_막대.png', dpi=150)
 plt.show()
 
 
@@ -248,7 +248,7 @@ plt.ylabel('상관계수 r')
 plt.title('연도별 고령화율 · 반납률 상관계수', fontsize=13, fontweight='bold')
 plt.legend(loc='upper right')
 plt.tight_layout()
-plt.savefig('./data/graphs/B_가설2_연도별_상관계수.png', dpi=150)
+plt.savefig('./data/graphs/B가설2-3_연도별_상관계수.png', dpi=150)
 plt.show()
 
 # 5-3 (현실 확인 - 고령 인구 vs 반납 증감): 2022 · 2023 · 2024년 전국 값을 항목별 그래프 3개로 나눠 비교한다.

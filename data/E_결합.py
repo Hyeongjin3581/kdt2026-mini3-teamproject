@@ -12,7 +12,7 @@ plt.rcParams['axes.unicode_minus'] = False
 sns.set_theme(font='Malgun Gothic', rc={'axes.unicode_minus': False}, style='whitegrid')
 
 연도들 = [2022, 2023, 2024]
-연도색 = {2022: '#E5484D', 2023: '#F2B705', 2024: '#2E9E4F'}   # C 와 같은 연도 색 (숫자 hue 그라데이션 방지)
+연도색 = {2022: '#9AA5B1', 2023: '#5B8DB8', 2024: '#1F4E79'}   # B 와 같은 연도 색
 
 
 
@@ -21,25 +21,20 @@ A후보 = ['./data/정제_A_사고.csv', './data/data/clean/정제_A_사고.csv'
 A파일 = next((p for p in A후보 if os.path.exists(p)), A후보[0])
 
 # [5. 핵심 가설 판정 및 시각화]
-# 5-1 (핵심 판정 - 연도별 히트맵 3개): plt.subplots(1, 3) 로 칸 3개를 만들고,
-#                                     for i, 연도 in enumerate([2022, 2023, 2024]) 반복으로
-#                                     합계[합계['연도'] == 연도] 의 '반납률', '정류장_천명당', '고령화율', '고령사고_만명당' 네 열 corr() 를
-#                                     sns.heatmap( , annot=True, fmt='.2f', cmap='coolwarm', ax=axs[i]) 로 그린다.
-#                                     (수업 참고: day09/g-02.py 3번 히트맵, day09/g-01.py 6번 subplots)
-#                                     → 연도마다 [반납률] 행에서 정류장_천명당 ≥ 0.4 이고 고령화율 절댓값보다 큰지 판정한다.
+# 5-1 (핵심 판정): 연도마다 r(정류장_천명당, 반납률) 이 +0.4 이상이고, 고령화율 r 의 절댓값보다 큰지 판정한다.
+#                  → 그래프 ① 연도별 상관계수 비교 막대 (정류장 r vs 고령화율 r)
 
-# 5-2 (보조 - 산점도 2개 나란히): plt.subplots(1, 2) 로 왼쪽 '고령화율 vs 반납률', 오른쪽 '정류장_천명당 vs 반납률' 산점도를 그린다.
-#                               sns.scatterplot( , hue='연도', ax=axs[0]) 처럼 연도별 색으로 구분한다.
-#                               두 그래프 중 점들이 더 한 줄로 모여 있는 쪽이 반납률을 더 잘 설명한다.
+# 5-2 (보조): 정류장_천명당 3그룹(하위·중위·상위)별 평균 반납률을 비교한다.
+#             → 그래프 ② 정류장 3그룹 막대 (B 의 고령화율 3그룹 막대와 같은 형식)
 
-# 5-3 (보조 가설 - 코로나): 연도별 r(정류장_천명당, 반납률) 3개를 리스트로 모아 막대 또는 선 그래프로 그린다.
-#                          → 2022 < 2024 이면 "일상 회복 이후 버스의 역할이 커졌다" 는 해석이 가능하다.
+# 5-3 (보조 가설 - 코로나): 연도별 r(정류장_천명당, 반납률) 의 절댓값이 2022 < 2024 인지 확인한다.
+#                          → 그래프 ① 의 정류장 막대 3개로 함께 확인
 
-# 5-4 (이상치 시도 확인): 산점도에서 혼자 멀리 떨어진 시도(예: 세종, 제주)가 있으면
-#                        그 시도를 제외하고 corr() 를 다시 구해 "제외 시 r = ○○" 를 함께 기록한다. (연도당 표본이 17개라 한 지역에 크게 흔들리기 때문)
+# 5-4 (이상치 시도 확인): 세종·제주를 각각 제외하고 r 을 다시 구해 "제외 시 r = ○○" 를 기록한다.
+#                        (연도당 표본이 17개라 한 지역에 크게 흔들리기 때문)
 
-# 5-5 (A 가설 3): 연도마다 '반납률' 과 '고령사고_만명당' 의 상관계수를 확인한다. → r ≤ -0.4 이면 "반납이 늘면 사고가 줄어든다" 채택
-#                sns.scatterplot(data=합계, x='반납률', y='고령사고_만명당', hue='연도')
+# 5-5 (A 가설 3): 연도마다 '반납률' 과 '고령사고_만명당' 의 상관계수를 확인한다. → r ≤ -0.4 이면 "반납률이 높은 시도일수록 고령사고가 적다" 채택
+#                → 그래프 ③ 연도별 반납률 · 고령사고 상관계수 막대
 
 # 5-6 (결과별 결론): 판정 결과에 따라 결론을 고른다.
 #   · 정류장 r 강함 / 고령화율 r 약함 (3년 모두) → "버스가 핵심" → 수요응답형 버스 전환 (채택)
@@ -155,53 +150,66 @@ print('\n[5-5] A 가설 3 (3개 연도 모두 r(반납률, 고령사고_만명�
 
 판정표.to_csv(저장폴더 + '/가설판정표.csv', index=False, encoding='utf-8-sig')
 
-# 그래프 ① 연도별 상관계수 히트맵
-열목록 = ['반납률', '정류장_천명당', '고령화율', '고령사고_만명당']
-fig, axs = plt.subplots(1, 3, figsize=(18, 5))
-for i, 연도 in enumerate(연도들):
-    상관표 = 합계[합계['연도'] == 연도][열목록].corr()
-    sns.heatmap(상관표, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1, ax=axs[i])
-    axs[i].set_title(str(연도) + '년 상관계수')
+# 그래프 ① 핵심 가설 – 연도별 상관계수 비교 막대
+#   정류장 r 과 고령화율 r 을 연도별로 나란히 놓는다.
+#   조건 ① 정류장 막대가 +0.4 선 위에 있는가 / 조건 ② 정류장 막대가 고령화율 막대보다 긴가
+x = np.arange(len(연도들))
+폭 = 0.36
+fig, ax = plt.subplots(figsize=(9, 5.5))
+ax.axhspan(-0.4, 0.4, color='lightgray', alpha=0.5, label='약한 상관 (|r| < 0.4)')
+ax.axhline(0, color='gray', linewidth=0.8)
+막대1 = ax.bar(x - 폭 / 2, 판정표['정류장_반납률_r'], 폭, color='#1F4E79', label='정류장_천명당')
+막대2 = ax.bar(x + 폭 / 2, 판정표['고령화율_반납률_r'], 폭, color='#9AA5B1', label='고령화율')
+ax.bar_label(막대1, fmt='%.2f', padding=3, fontsize=11)
+ax.bar_label(막대2, fmt='%.2f', padding=3, fontsize=11)
+ax.set_xticks(x, [str(y) for y in 연도들])
+ax.set_ylim(-1, 1)
+ax.set_ylabel('반납률과의 상관계수 r')
+ax.set_title('연도별 반납률과의 상관계수', fontsize=13, fontweight='bold')
+ax.legend(loc='upper right')
 plt.tight_layout()
-plt.savefig(그래프폴더 + '/E_연도별_상관계수.png', dpi=150)
+plt.savefig(그래프폴더 + '/핵심가설-1_E가설2_연도별_상관계수_막대.png', dpi=150)
 plt.show()
 
-# 그래프 ② 보조 산점도 2개 (연도별 추세선)
-fig, axs = plt.subplots(1, 2, figsize=(14, 5.5), sharey=True)
-for ax, x, 축이름, 제목 in [(axs[0], '고령화율', '고령화율 (%)', '고령화율과 면허 반납률'),
-                         (axs[1], '정류장_천명당', '정류장 수 (65세 이상 인구 천 명당 개)', '버스정류장 수와 면허 반납률')]:
-    for 연도 in 연도들:
-        sns.regplot(data=합계[합계['연도'] == 연도], x=x, y='반납률', ci=None, color=연도색[연도], label=str(연도),
-                    scatter_kws={'s': 55, 'edgecolor': 'white'}, line_kws={'linewidth': 2}, ax=ax)
-    ax.set_xlabel(축이름)
-    ax.set_title(제목)
-    ax.legend(title='연도')
-axs[0].set_ylabel('반납률 (65세 이상 인구 천 명당 건)')
+# 그래프 ② 정류장 3그룹 평균 반납률 막대
+#   17개 시도를 정류장_천명당 순으로 하위·중위·상위 3그룹(6·5·6곳)으로 나눠 그룹별 평균 반납률을 비교한다.
+#   (B 의 고령화율 3그룹 막대와 같은 형식 → 고령화율은 평평, 정류장은 계단)
+fig, axs = plt.subplots(1, 3, figsize=(16, 5.5), sharey=True)
+for ax, 연도 in zip(axs, 연도들):
+    t = 합계[합계['연도'] == 연도].copy()
+    t['그룹'] = pd.qcut(t['정류장_천명당'], 3, labels=['하위', '중위', '상위'])
+    그룹표 = t.groupby('그룹', observed=True).agg(평균반납률=('반납률', 'mean'), 시도수=('시도명', 'count'),
+                                              최소=('정류장_천명당', 'min'), 최대=('정류장_천명당', 'max'))
+    라벨 = [f"정류장 {그룹}\n({행.최소:.1f}~{행.최대:.1f}개, {int(행.시도수)}곳)" for 그룹, 행 in 그룹표.iterrows()]
+    막대 = ax.bar(라벨, 그룹표['평균반납률'], color=연도색[연도], width=0.6)
+    ax.bar_label(막대, fmt='%.2f', padding=3, fontsize=11)
+    r = 판정표.loc[판정표['연도'] == 연도, '정류장_반납률_r'].iloc[0]
+    ax.set_title(f'{연도}년  r = {r:.2f}', fontsize=12)
+    ax.set_ylim(0, 합계['반납률'].max())
+    ax.set_ylabel('평균 반납률' if 연도 == 연도들[0] else '')
+    ax.tick_params(axis='x', labelsize=9)
+    ax.grid(axis='x', visible=False)
+    print(f'[그래프 ②] {연도} 정류장 3그룹 평균 반납률:', 그룹표['평균반납률'].round(2).to_dict())
+fig.suptitle('정류장 수 3그룹별 평균 반납률', fontsize=14, fontweight='bold')
 plt.tight_layout()
-plt.savefig(그래프폴더 + '/E_반납률_산점도.png', dpi=150)
+plt.savefig(그래프폴더 + '/핵심가설-2_정류장_3그룹_막대.png', dpi=150)
 plt.show()
 
-# 그래프 ③ A 가설 3 산점도
-plt.figure(figsize=(9, 6))
-sns.scatterplot(data=합계, x='반납률', y='고령사고_만명당', hue='연도', palette=연도색, s=70)
-plt.title('면허 반납률과 고령운전자 사고 발생률')
-plt.xlabel('반납률 (65세 이상 인구 천 명당 건)')
-plt.ylabel('고령운전자 사고 (65세 이상 인구 1만 명당 건)')
-plt.tight_layout()
-plt.savefig(그래프폴더 + '/E_A가설3_산점도.png', dpi=150)
-plt.show()
-
-# 그래프 ④ 코로나 보조 가설
+# 그래프 ③ A 가설 3 – 연도별 반납률 · 고령사고 상관계수 막대
 plt.figure(figsize=(8, 5))
-막대 = plt.bar([str(y) for y in 연도들], 판정표['정류장_반납률_r'], color=[연도색[y] for y in 연도들], width=0.5)
-plt.bar_label(막대, fmt='%.3f', padding=3)
-plt.axhline(0, color='gray', linewidth=1)
+plt.axhspan(-0.4, 0.4, color='lightgray', alpha=0.5, label='약한 상관 (|r| < 0.4)')
+plt.axhline(0, color='gray', linewidth=0.8)
+막대 = plt.bar([str(y) for y in 연도들], 판정표['반납률_사고_r'], color=[연도색[y] for y in 연도들], width=0.5)
+plt.bar_label(막대, labels=[f'r = {v:.2f}' for v in 판정표['반납률_사고_r']], padding=4, fontsize=11)
 plt.ylim(-1, 1)
-plt.title('연도별 정류장 수와 반납률의 상관계수')
-plt.ylabel('피어슨 상관계수 r')
+plt.ylabel('상관계수 r')
+plt.title('연도별 반납률 · 고령사고 상관계수', fontsize=13, fontweight='bold')
+plt.legend(loc='upper right')
 plt.tight_layout()
-plt.savefig(그래프폴더 + '/E_코로나_상관계수.png', dpi=150)
+plt.savefig(그래프폴더 + '/E가설1_반납률_고령사고_상관계수_막대.png', dpi=150)
 plt.show()
+
+# ※ 코로나 보조 가설(5-3)은 그래프 ① 의 정류장 막대 3개(2022 → 2024)로 함께 확인한다.
 
 # 5-6 (결과별 결론)
 #   결과: r(정류장) 강한 음의 상관(-0.74 / -0.81 / -0.72), r(고령화율) 약함(0.01 / -0.07 / -0.18)
