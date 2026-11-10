@@ -3,3 +3,5 @@ key.txt
    !정제_*.csv
 # !정제_*.csv : "원본 CSV는 빼되, 정제 파일은 올린다"
    .ipynb_checkpoints/
+# 국가법령정보 Open API 인증값 (공개 저장소에 올리지 않음)
+개선/05_조례/oc.txt
